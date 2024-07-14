@@ -120,13 +120,16 @@ io.on("connection", (socket) => {
     io.emit("receive-message", message);
   });
 
-  socket.on("toroom", ({ room, message }) => {
-    console.log({ room, message });
-    io.to(room).emit("receive-message-room", message)  });
+  socket.on("toroom", ({ from,room, message }) => {
+    console.log({ room, from,message });
+    io.to(room).emit("receive-message-room", {from,room,message})  });
 
   socket.on("join-room", (room) => {
     socket.join(room);
     console.log(`User joined room ${room}`);
+  });
+  socket.on('drawing', (data) => {
+    socket.broadcast.emit('drawing', data);
   });
 
   socket.on("disconnect", () => {
