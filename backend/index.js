@@ -62,13 +62,18 @@ const express =require ("express");
 const { Server }=require  ("socket.io");
 const { createServer } =require ("http");
 const cors =require ("cors");
+const cookieParser = require('cookie-parser');
+const cookie = require('cookie');
+var myMap = new Map();
+var Rooms= new Map();
 // const jwt =require ("jsonwebtoken");
-const cookieParser =require ("cookie-parser");
+// const cookieParser =require ("cookie-parser");
 
 const secretKeyJWT = "asdasdsadasdasdasdsa";
 const port = 4000;
 
 const app = express();
+app.use(cookieParser());
 const server = createServer(app);
 const io = new Server(server, {
   cors: {
@@ -90,42 +95,62 @@ app.get("/", (req, res) => {
   res.send("Hello World!");
 });
 
-// app.get("/login", (req, res) => {
-//   const token = jwt.sign({ _id: "asdasjdhkasdasdas" }, secretKeyJWT);
 
-//   res
-//     .cookie("token", token, { httpOnly: true, secure: true, sameSite: "none" })
-//     .json({
-//       message: "Login Success",
-//     });
-// });
+function pushToMap(map, key, element) {
+  // console.log(key);
+  if (map.has(key)) {
+    // console.log("hello");
+      // // If the key exists, push the element to the array
+      let b=true;
+      let arr=map.get(key);
+      if(arr){
+        for(let i=0;i<arr.length;i++){
+          if(arr[i]==element){
+            b=false;
+            break;
+          }
+        }
+      }
+      // console.log(arr);
+      if(arr && b){
+        arr.push(element);
+      }
+  } else {
+      // If the key doesn't exist, create a new array with the element
+      map.set(key, [element]);
+  }
+  // console.log(map);
+}
 
-// io.use((socket, next) => {
-//   cookieParser()(socket.request, socket.request.res, (err) => {
-//     if (err) return next(err);
-
-//     const token = socket.request.cookies.token;
-//     if (!token) return next(new Error("Authentication Error"));
-
-//     const decoded = jwt.verify(token, secretKeyJWT);
-//     next();
-//   });
-// });
 
 io.on("connection", (socket) => {
-  console.log("User Connected", socket.id);
 
+  const cookies = cookie.parse(socket.handshake.headers.cookie || '');
+  const user=cookies.userid;
+  // if(user){
+    myMap.set(user,socket.id);
+    // console.log("user connected ->",user,myMap.get(user));
+    // io.emit("userids",Object.fromEntries(myMap));
+  // }
   socket.on("message", (message) => {
     // console.log({ room, message });
     io.emit("receive-message", message);
   });
 
   socket.on("toroom", ({ from,room, message }) => {
-    console.log({ room, from,message });
+    // console.log(socket.id);
+    // console.log({ room, from,message });
+    // console.log(message);
     io.to(room).emit("receive-message-room", {from,room,message})  });
 
-  socket.on("join-room", (room) => {
+  socket.on("join-room", (info) => {
+    
+    const room=info.room;
+    const user=info.user;
     socket.join(room);
+    pushToMap(Rooms, room, user);
+    // console.log("ROOMS ->");
+    // console.log(Rooms.get(room));
     console.log(`User joined room ${room}`);
   });
   socket.on('drawing', (data) => {
@@ -133,8 +158,87 @@ io.on("connection", (socket) => {
   });
 
   socket.on("disconnect", () => {
+
+    const room=cookies.roomid;
     console.log("User Disconnected", socket.id);
+    myMap.delete(user);
+    var arr=Rooms.get(room);
+    console.log(arr,user);
+  //   // console.log(arr);
+    if(arr){
+    for (let i = 0; i < arr.length; i++) {
+      if (arr[i] === user) {
+          arr.splice(i, 1);
+          break;
+      }
+    }
+  }
+    if (arr && arr.length === 0) {
+      Rooms.delete(room);
+    } else {
+        Rooms.set(room, arr);
+        console.log(Rooms);
+    }
+    // console.log(Rooms.get(room));
+    io.emit("userids",Object.fromEntries(myMap));
+    // console.log(user);
   });
+
+  socket.on("check-players",(room)=>{
+    // let arr=Rooms.get(room);
+    // console.log(arr.length);
+    // console.log("ji");
+    let arr=Rooms.get(room);
+    let len=arr.length;
+    io.emit("players-checked",{"roomid":room,"players":len});
+  })
+  
+  socket.on("start-game",(obj)=>{
+    console.log(obj);
+    // let rounds = obj.rounds; // Number of rounds
+    // let seconds = obj.seconds; // Duration of each round in seconds
+    // let round = 1; // Start with round 1
+
+    function startRound(round){
+      if (round > rounds) {
+        console.log("Game ended.");
+        // Example: Broadcast game end to players
+        socket.emit("game-end");
+        return;
+    }
+    console.log(`Round ${round} started`);
+    socket.emit("round-start", { round });
+    let p=1;
+    function player(size,p){
+      if(p>size){
+          setTimer(timebtwn);
+          return ;
+      }
+      setTimer(--timer);
+      console.log(p," is playing ");
+      setTimeout(() => {
+          player(size,p+1);
+      }, timebtwn*1000);
+  }
+  player(size,p);
+  setTimeout(() => {
+     // 10-second delay between rounds (can be adjusted)
+    console.log(`Round ${round} ended`);
+    socket.emit("round-end", { round });
+    
+    // Start the next round after a delay
+    setTimeout(() => {
+        startRound(round + 1);
+    }, 10 * 1000);
+    }, seconds* 1000);
+    
+
+
+
+    }
+    // startRound(round);
+    // console.log(myMap);
+  })
 });
 
 server.listen(port, () => {
