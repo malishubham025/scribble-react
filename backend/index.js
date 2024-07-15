@@ -194,10 +194,11 @@ io.on("connection", (socket) => {
   })
   
   socket.on("start-game",(obj)=>{
-    console.log(obj);
-    // let rounds = obj.rounds; // Number of rounds
-    // let seconds = obj.seconds; // Duration of each round in seconds
-    // let round = 1; // Start with round 1
+    
+    // io.to(obj.roomid).emit("game-started",obj);
+    let rounds = obj.rounds; // Number of rounds
+    let seconds = obj.seconds; // Duration of each round in seconds
+    let round = 1; // Start with round 1
 
     function startRound(round){
       if (round > rounds) {
@@ -236,7 +237,7 @@ io.on("connection", (socket) => {
 
 
     }
-    // startRound(round);
+    startRound(round);
     // console.log(myMap);
   })
 });
