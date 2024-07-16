@@ -149,13 +149,27 @@ io.on("connection", (socket) => {
     const user=info.user;
     socket.join(room);
     pushToMap(Rooms, room, user);
+    console.log(Rooms);
     // console.log("ROOMS ->");
     // console.log(Rooms.get(room));
     console.log(`User joined room ${room}`);
   });
   socket.on('drawing', (data) => {
-    socket.broadcast.emit('drawing', data);
+    
+    const room = data.room; // Assuming the room information is included in the data
+    // console.log(data.room);
+    // let arr=Rooms.get(room);
+    // for(let i=0;i<arr.length;i++){
+    //   socket.join();
+    // }
+    // socket.join(room);
+    // console.log(socket.id,myMap.get(user));
+    // io.broadcast.emit('drawing-room', data);
+    // socket.broadcast.emit('drawing-room', data);
+    io.to(room).emit("drawing-room", data);
+    // io.to(room).emit("receive-message-room", {"from":"from","room":room,"message":"hi"});
   });
+  
 
   socket.on("disconnect", () => {
 
@@ -163,7 +177,7 @@ io.on("connection", (socket) => {
     console.log("User Disconnected", socket.id);
     myMap.delete(user);
     var arr=Rooms.get(room);
-    console.log(arr,user);
+    console.log(arr);
   //   // console.log(arr);
     if(arr){
     for (let i = 0; i < arr.length; i++) {
@@ -192,53 +206,61 @@ io.on("connection", (socket) => {
     let len=arr.length;
     io.emit("players-checked",{"roomid":room,"players":len});
   })
-  
-  socket.on("start-game",(obj)=>{
-    
-    // io.to(obj.roomid).emit("game-started",obj);
-    let rounds = obj.rounds; // Number of rounds
-    let seconds = obj.seconds; // Duration of each round in seconds
-    let round = 1; // Start with round 1
 
+  socket.on("start-game",(obj)=>{
+  io.to(obj.room).emit("game-started",obj);
+  })
+
+
+  socket.on("play-finnally",(obj)=>{
+      let arr=Rooms.get(obj.room);
+      let room=obj.room;
+      let size=arr.length;
+      let rounds = obj.rounds; // Number of rounds
+      let seconds = obj.seconds; // Duration of each round in seconds
+      let round = 1; // Start with round 1
+      let timebtwn=3;
     function startRound(round){
       if (round > rounds) {
         console.log("Game ended.");
         // Example: Broadcast game end to players
-        socket.emit("game-end");
+        // socket.emit("game-end");
         return;
-    }
-    console.log(`Round ${round} started`);
-    socket.emit("round-start", { round });
-    let p=1;
-    function player(size,p){
-      if(p>size){
-          setTimer(timebtwn);
-          return ;
       }
-      setTimer(--timer);
-      console.log(p," is playing ");
-      setTimeout(() => {
-          player(size,p+1);
-      }, timebtwn*1000);
-  }
-  player(size,p);
-  setTimeout(() => {
-     // 10-second delay between rounds (can be adjusted)
-    console.log(`Round ${round} ended`);
-    socket.emit("round-end", { round });
-    
-    // Start the next round after a delay
-    setTimeout(() => {
-        startRound(round + 1);
-    }, 10 * 1000);
-    }, seconds* 1000);
+      console.log(`Round ${round} started`);
+      io.to(room).emit("round-number",round);
+      // io.to(room).emit("round-start", { round });
+      let p=1;
+      function player(size,p){
+          if(p>size){
+              // setTimer(timebtwn);
+              return ;
+          }
+          // setTimer(--timer);
+          console.log(p," is playing ");
+          io.to(room).emit("is-playing",arr[p]);
+              setTimeout(() => {
+                  player(size,p+1);
+              }, timebtwn*1000);
+          }
+        player(size,p);
+        setTimeout(() => {
+          // 10-second delay between rounds (can be adjusted)
+          console.log(`Round ${round} ended`);
+          io.to(room).emit("round-end", { round });
+          
+          // Start the next round after a delay
+          setTimeout(() => {
+              startRound(round + 1);
+          }, 10 * 1000);
+          }, seconds* 1000);
     
 
 
 
     }
     startRound(round);
-    // console.log(myMap);
+  //   // console.log(myMap);
   })
 });
 
