@@ -1,63 +1,3 @@
-// const express=require("express");
-// const app=express();
-// const {Server}=require("socket.io");
-// const http=require("http");
-// const server=http.createServer(app);
-// const bodyParser=require("body-parser");
-// const cors=require("cors");
-// app.use(bodyParser.json());
-// const { v4: uuidv4 } = require('uuid');
-// const io=new Server(server,{
-//     cors: {
-//         origin: "http://localhost:3000",
-//         methods: ["GET", "POST"],
-//         credentials: true
-//     }
-// });
-// io.on("connection",(socket)=>{
-//     console.log("connected ",socket.id);
-//     socket.on("sendmessage",(message)=>{
-//         console.log("hi");
-//         io.emit("toall",message);
-//     })
-//     // socket.on("createroom",(id)=>{
-//     //     // socket.join()
-//     //     const uuid=uuidv4();
-//     //     console.log("room id is ",uuid);
-//     //     socket.join(uuid);
-//     //     // console.log(uuid,"is of socket id ",id);
-//     //     socket.emit("roomid",uuid);
-//     //     // console.log("message");
-//     //     // console.log(id);
-//     // });
-//     // socket.on("joinroom",(id)=>{
-//     //     console.log("joined to",id);
-//     //     socket.join(id);
-//     // })
-//     // // socket.on("messagetoroom",(message)=>{
-//     // //     console.log(message);
-//     // // })
-//     // socket.on("sendMessage",(message)=>{
-//     //     // io.emit("messagetoroom",message.message);
-//     //     console.log(message);
-//     //     const x=message.id;
-//     //     const v=message.message;
-//     //     // io.to(x).emit('messagetoroom',v);
-//     //     // socket.to(x).emit("messagetoroom", v);
-//     //     // socket.to(message.id).emit("messagetoroom",message.message);
-//     //     // console.log(message);
-//     // })
-// })
-// app.use(cors({
-//     origin:"*",
-//     credentials:true
-// }))
-// app.get("/",(req,res)=>{
-//     res.send("hello");
-// })
-// server.listen(4000,()=>{
-//     console.log("listning ...");
-// })
 const express =require ("express");
 const { Server }=require  ("socket.io");
 const { createServer } =require ("http");
@@ -66,6 +6,7 @@ const cookieParser = require('cookie-parser');
 const cookie = require('cookie');
 var myMap = new Map();
 var Rooms= new Map();
+const GameStates = new Map();
 // const jwt =require ("jsonwebtoken");
 // const cookieParser =require ("cookie-parser");
 
@@ -157,16 +98,13 @@ io.on("connection", (socket) => {
   socket.on('drawing', (data) => {
     
     const room = data.room; // Assuming the room information is included in the data
-    // console.log(data.room);
-    // let arr=Rooms.get(room);
-    // for(let i=0;i<arr.length;i++){
-    //   socket.join();
-    // }
-    // socket.join(room);
-    // console.log(socket.id,myMap.get(user));
-    // io.broadcast.emit('drawing-room', data);
-    // socket.broadcast.emit('drawing-room', data);
     io.to(room).emit("drawing-room", data);
+    // io.to(room).emit("receive-message-room", {"from":"from","room":room,"message":"hi"});
+  });
+  socket.on('drawing2', (data) => {
+    
+    const room = data.room; // Assuming the room information is included in the data
+    io.to(room).emit("drawing-room2", data);
     // io.to(room).emit("receive-message-room", {"from":"from","room":room,"message":"hi"});
   });
   
@@ -201,28 +139,38 @@ io.on("connection", (socket) => {
   socket.on("check-players",(room)=>{
     // let arr=Rooms.get(room);
     // console.log(arr.length);
-    // console.log("ji");
+    console.log("ji");
     let arr=Rooms.get(room);
     let len=arr.length;
     io.emit("players-checked",{"roomid":room,"players":len});
   })
 
   socket.on("start-game",(obj)=>{
+    console.log("game-started");
   io.to(obj.room).emit("game-started",obj);
   })
 
 
   socket.on("play-finnally",(obj)=>{
-      let arr=Rooms.get(obj.room);
+    console.log("play-finnally");
       let room=obj.room;
+      if (GameStates.get(room)) {
+        console.log(`Game already in progress for room ${room}`);
+        return;
+      }
+      GameStates.set(room, true);
+      let arr=Rooms.get(obj.room);
+      
       let size=arr.length;
+      let timegivenplayer=5;
       let rounds = obj.rounds; // Number of rounds
-      let seconds = obj.seconds; // Duration of each round in seconds
+      let seconds = timegivenplayer*size; // Duration of each round in seconds
       let round = 1; // Start with round 1
-      let timebtwn=3;
+      let timebtwn=5;
     function startRound(round){
       if (round > rounds) {
         console.log("Game ended.");
+        GameStates.set(room,false);
         // Example: Broadcast game end to players
         // socket.emit("game-end");
         return;
@@ -231,17 +179,29 @@ io.on("connection", (socket) => {
       io.to(room).emit("round-number",round);
       // io.to(room).emit("round-start", { round });
       let p=1;
+      let x=timegivenplayer;
       function player(size,p){
           if(p>size){
-              // setTimer(timebtwn);
+              
               return ;
           }
-          // setTimer(--timer);
+          var y=setInterval(()=>{
+            if(x<=0){
+              
+              io.to(room).emit("timer-player",0);
+              x=timegivenplayer;
+              clearInterval(y);
+            }
+            io.to(room).emit("timer-player",x);
+            x=x-1;
+          },1000);
+          
+          
           console.log(p," is playing ");
-          io.to(room).emit("is-playing",arr[p]);
+          io.to(room).emit("is-playing",arr[p-1]);
               setTimeout(() => {
                   player(size,p+1);
-              }, timebtwn*1000);
+              }, timegivenplayer*1000);
           }
         player(size,p);
         setTimeout(() => {
@@ -252,7 +212,7 @@ io.on("connection", (socket) => {
           // Start the next round after a delay
           setTimeout(() => {
               startRound(round + 1);
-          }, 10 * 1000);
+          }, timebtwn * 1000);
           }, seconds* 1000);
     
 
