@@ -6,6 +6,7 @@ const cookieParser = require('cookie-parser');
 const cookie = require('cookie');
 var myMap = new Map();
 var Rooms= new Map();
+var RoomsScores= new Map();
 const GameStates = new Map();
 // const jwt =require ("jsonwebtoken");
 // const cookieParser =require ("cookie-parser");
@@ -61,6 +62,16 @@ function pushToMap(map, key, element) {
       map.set(key, [element]);
   }
   // console.log(map);
+  
+}
+function pushScore(map,room,user,score){
+  let arr=map.get(room);
+  for(let i=0;i<arr.length;i++){
+    let temp=arr[i];
+    if(user==temp.user){
+      temp.score=temp.score +score;
+    }
+  }
 }
 
 
@@ -96,9 +107,12 @@ io.on("connection", (socket) => {
     const user=info.user;
     socket.join(room);
     pushToMap(Rooms, room, user);
+    pushToMap(RoomsScores,room,{"user":user,score:0});
     console.log(Rooms);
     // console.log("ROOMS ->");
     // console.log(Rooms.get(room));
+    let arr=RoomsScores.get(room);
+    io.to(room).emit("allusers",arr);
     console.log(`User joined room ${room}`);
   });
   socket.on('drawing', (data) => {
@@ -156,172 +170,7 @@ io.on("connection", (socket) => {
   io.to(obj.room).emit("game-started",obj);
   })
 
-  // socket.on("play-finnally",(obj)=>{
-  //   console.log("play-finnally");
-  //     let words=["hi","hello","isit","nice","one","three","home"]; 
-  //     let room=obj.room;
-  //     if (GameStates.get(room)) {
-  //       console.log(`Game already in progress for room ${room}`);
-  //       return;
-  //     }
-  //     GameStates.set(room, true);
-  //     let arr=Rooms.get(obj.room);
-      
-  //     let size=arr.length;
-  //     let timegivenplayer=40;
-  //     let rounds = obj.rounds; // Number of rounds
-  //     let seconds = timegivenplayer*size; // Duration of each round in seconds
-  //     let round = 1; // Start with round 1
-  //     let timebtwn=5;
-  //   function startRound(round){
-  //     if (round > rounds) {
-  //       console.log("Game ended.");
-  //       GameStates.set(room,false);
-  //       // Example: Broadcast game end to players
-  //       // socket.emit("game-end");
-  //       return;
-  //     }
-  //     let mySet = new Set();
-  //     console.log(`Round ${round} started`);
-  //     io.to(room).emit("round-number",round);
-  //     // io.to(room).emit("round-start", { round });
 
-  //     let p=1;
-  //     let x=timegivenplayer;
-      
-  //     function player(size,p){
-  //         if(p>size){
-  //           startRound(round + 1);
-  //             return ;
-  //         }
-  //         var y=setInterval(()=>{
-  //           if(x<=0){
-              
-  //             io.to(room).emit("timer-player",0);
-  //             x=timegivenplayer;
-  //             clearInterval(y);
-  //           }
-  //           io.to(room).emit("timer-player",x);
-  //           x=x-1;
-  //         },1000);
-          
-         
-  //         console.log(p," is playing ");
-          
-  //         socket.on("check-time",(user)=>{
-  //           console.log("correct guess by ",user);
-  //           mySet.add(user);
-  //           // console.log(mySet.size);
-  //           if(mySet.size==size-1){
-  //             console.log("cleared");
-  //             clearTimeout(playerPlaying);
-              
-  //             setTimeout(()=>{
-  //               player(size,p+1);
-  //             },2000)
-  //             // mySet.clear();
-              
-  //           }
-  //         })
-  //         io.to(room).emit("word",words[Math.floor(Math.random() * words.length)]);
-  //         io.to(room).emit("is-playing",arr[p-1]);
-  //             var playerPlaying=setTimeout(() => {
-  //                 mySet.clear();
-  //                 player(size,p+1);
-  //             }, timegivenplayer*1000);
-  //         }
-  //       player(size,p);
-  //       setTimeout(() => {
-  //         // 10-second delay between rounds (can be adjusted)
-  //         console.log(`Round ${round} ended`);
-  //         io.to(room).emit("round-end", { round });
-          
-  //         // Start the next round after a delay
-  //         setTimeout(() => {
-  //             startRound(round + 1);
-  //         }, timebtwn * 1000);
-  //         }, seconds* 1000);
-    
-
-
-
-  //   }
-  //   startRound(round);
-  // //   // console.log(myMap);
-  // })
-  // socket.on("play-finnally", (obj) => {
-  //   console.log("play-finnally");
-  //   let words = ["hi", "hello", "isit", "nice", "one", "three", "home"];
-  //   let room = obj.room;
-    
-  //   if (GameStates.get(room)) {
-  //     console.log(`Game already in progress for room ${room}`);
-  //     return;
-  //   }
-    
-  //   GameStates.set(room, true);
-  //   let arr = Rooms.get(obj.room);
-  //   let size = arr.length;
-  //   let timegivenplayer = 40;
-  //   let rounds = obj.rounds; // Number of rounds
-  //   let round = 1; // Start with round 1
-  //   let timebtwn = 5;
-  
-  //   function startRound(round) {
-  //     if (round > rounds) {
-  //       console.log("Game ended.");
-  //       GameStates.set(room, false);
-  //       return;
-  //     }
-  
-  //     console.log(`Round ${round} started`);
-  //     io.to(room).emit("round-number", round);
-      
-  //     let p = 1;
-  
-  //     function player(size, p) {
-  //       if (p > size) {
-  //         startRound(round + 1); // Proceed to the next round
-  //         return;
-  //       }
-  
-  //       let mySet = new Set();
-  //       let x = timegivenplayer;
-  //       let word = words[Math.floor(Math.random() * words.length)];
-  //       console.log(`${arr[p-1]} is playing with word: ${word}`);
-        
-  //       io.to(room).emit("word", word);
-  //       io.to(room).emit("is-playing", arr[p-1]);
-  
-  //       let timer = setInterval(() => {
-  //         if (x <= 0) {
-  //           io.to(room).emit("timer-player", 0);
-  //           clearInterval(timer);
-  //           x=timegivenplayer;
-  //           player(size, p + 1); // Move to the next player
-  //         } else {
-  //           io.to(room).emit("timer-player", x);
-  //           x--;
-  //         }
-  //       }, 1000);
-  
-  //       socket.on("check-time", (user) => {
-  //         console.log("correct guess by ", user);
-  //         mySet.add(user);
-  
-  //         if (mySet.size === size - 1) { // All other players guessed correctly
-  //           console.log("All players guessed correctly, moving to next player");
-  //           clearInterval(timer);
-  //           player(size, p + 1);
-  //         }
-  //       });
-  //     }
-  
-  //     player(size, p);
-  //   }
-  
-  //   startRound(round);
-  // });
   socket.on("play-finnally", (obj) => {
     console.log("play-finnally");
     let words = ["hi", "hello", "isit", "nice", "one", "three", "home"];
@@ -339,21 +188,21 @@ io.on("connection", (socket) => {
         console.log("Not enough players to start the game");
         return;
     }
-
+    
     GameStates.set(room, true);
     let size = arr.length;
     let timegivenplayer = 40;
     let rounds = obj.rounds; // Number of rounds
     let round = 1; // Start with round 1
     let timebtwn = 5;
-
+    
     function startRound(round) {
         if (round > rounds) {
             console.log("Game ended.");
             GameStates.set(room, false);
             return;
         }
-
+        let score=size+10;
         console.log(`Round ${round} started`);
         io.to(room).emit("round-number", round);
 
@@ -386,8 +235,10 @@ io.on("connection", (socket) => {
 
             const checkTimeListener = (user) => {
                 console.log("correct guess by ", user);
+                pushScore(RoomsScores,room,user,score);
+                io.to(room).emit("allusers",RoomsScores.get(room));
                 mySet.add(user);
-
+                score--;
                 if (mySet.size === size - 1) { // All other players guessed correctly
                     console.log("All players guessed correctly, moving to next player");
                     clearInterval(timer);
