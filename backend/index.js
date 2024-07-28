@@ -6,6 +6,7 @@ const cookieParser = require('cookie-parser');
 const cookie = require('cookie');
 var myMap = new Map();
 var Rooms= new Map();
+let UserStates=new Map();
 var RoomsScores= new Map();
 const GameStates = new Map();
 // const jwt =require ("jsonwebtoken");
@@ -64,6 +65,32 @@ function pushToMap(map, key, element) {
   // console.log(map);
   
 }
+function pushToMap2(map, key, element) {
+  // console.log(key);
+  if (map.has(key)) {
+    // console.log("hello");
+      // // If the key exists, push the element to the array
+      let b=true;
+      let arr=map.get(key);
+      if(arr){
+        for(let i=0;i<arr.length;i++){
+          if(arr[i].user==element.user){
+            b=false;
+            break;
+          }
+        }
+      }
+      // console.log(arr);
+      if(arr && b){
+        arr.push(element);
+      }
+  } else {
+      // If the key doesn't exist, create a new array with the element
+      map.set(key, [element]);
+  }
+  // console.log(map);
+  
+}
 function pushScore(map,room,user,score){
   let arr=map.get(room);
   for(let i=0;i<arr.length;i++){
@@ -102,18 +129,21 @@ io.on("connection", (socket) => {
 
 
   socket.on("join-room", (info) => {
-    
+    console.log("=============================joined=======================================");
     const room=info.room;
     const user=info.user;
     socket.join(room);
     pushToMap(Rooms, room, user);
-    pushToMap(RoomsScores,room,{"user":user,score:0});
+    pushToMap2(RoomsScores,room,{"user":user,score:0});
+
     console.log(Rooms);
+    console.log("scores->");
+    console.log(RoomsScores);
     // console.log("ROOMS ->");
     // console.log(Rooms.get(room));
     let arr=RoomsScores.get(room);
     io.to(room).emit("allusers",arr);
-    console.log(`User joined room ${room}`);
+    // console.log(`User joined room ${room}`);
   });
   socket.on('drawing', (data) => {
     
@@ -130,17 +160,27 @@ io.on("connection", (socket) => {
   
 
   socket.on("disconnect", () => {
-
+    console.log("=================================================================================");
     const room=cookies.roomid;
-    console.log("User Disconnected", socket.id);
+    console.log("User Disconnected", user);
+
     myMap.delete(user);
     var arr=Rooms.get(room);
-    console.log(arr);
+    let arr2=RoomsScores.get(room);
+    // console.log(arr);
   //   // console.log(arr);
+    // io.to(room).emit("user-disconnect",user);
     if(arr){
+      io.to(room).emit("user-disconnect", user);
     for (let i = 0; i < arr.length; i++) {
       if (arr[i] === user) {
           arr.splice(i, 1);
+          break;
+      }
+    }
+    for (let i = 0; i < arr2.length; i++) {
+      if (arr2[i].user === user) {
+          arr2.splice(i, 1);
           break;
       }
     }
@@ -150,6 +190,12 @@ io.on("connection", (socket) => {
     } else {
         Rooms.set(room, arr);
         console.log(Rooms);
+    }
+    if (arr2 && arr2.length === 0) {
+      RoomsScores.delete(room);
+    } else {
+        RoomsScores.set(room, arr2);
+        // console.log(Rooms);
     }
     // console.log(Rooms.get(room));
     io.emit("userids",Object.fromEntries(myMap));
@@ -173,22 +219,22 @@ io.on("connection", (socket) => {
 
   socket.on("play-finnally", (obj) => {
     console.log("play-finnally");
-    let words = ["hi", "hello", "isit", "nice", "one", "three", "home"];
+    
     let room = obj.room;
-
-    // Ensure only one game starts per room
-    if (GameStates.get(room)) {
-        console.log(`Game already in progress for room ${room}`);
-        return;
-    }
-
-    // Check if the number of players is enough to start the game
     let arr = Rooms.get(room);
     if (arr.length < 2) {
         console.log("Not enough players to start the game");
         return;
     }
+    // Ensure only one game starts per room
+    if (GameStates.get(room)) {
+        console.log(`Game already in progress for room ${room}`);
+        return;
+    }
     
+    // Check if the number of players is enough to start the game
+ 
+    let words = ["hi", "hello", "isit", "nice", "one", "three", "home"];
     GameStates.set(room, true);
     let size = arr.length;
     let timegivenplayer = 40;
@@ -252,8 +298,25 @@ io.on("connection", (socket) => {
 
         player(size, p);
     }
-
+    
+    
     startRound(round);
+});
+
+socket.on("reconnect-user", ({ user, room }) => {
+  if (UserStates.has(user)) {
+    UserStates.get(user).active = true;
+    socket.join(room);
+
+    // Emit the current state to the reconnected user
+    const gameState = GameStates.get(room);
+    if (gameState) {
+      socket.emit("restore-game-state", gameState);
+    }
+
+    let arr = RoomsScores.get(room);
+    io.to(room).emit("allusers", arr);
+  }
 });
 
   
