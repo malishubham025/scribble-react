@@ -135,9 +135,11 @@ io.on("connection", (socket) => {
     socket.join(room);
     pushToMap(Rooms, room, user);
     pushToMap2(RoomsScores,room,{"user":user,score:0});
-    if(GameStates.get(room)){
-      console.log("already playing ");
+    if (GameStates.get(room)) {
+        io.to(room).emit("reload");
+        console.log("game play hai bhai");
     }
+    UserStates.set(user, { room, score: 0 });
     console.log(Rooms);
     console.log("scores->");
     console.log(RoomsScores);
@@ -145,7 +147,7 @@ io.on("connection", (socket) => {
     // console.log(Rooms.get(room));
     let arr=RoomsScores.get(room);
     io.to(room).emit("allusers",arr);
-    // console.log(`User joined room ${room}`);
+    // console.log(User joined room ${room});
   });
   socket.on('drawing', (data) => {
     
@@ -296,34 +298,29 @@ io.on("connection", (socket) => {
             };
 
             socket.on("check-time", checkTimeListener);
+            // socket.on("new_user",(room)=>{
+            //   clearInterval(timer);
+            //   player(size,size);
+            //   startRound(3);
+            //   setTimeout(()=>{
+            //     console.log("game started again");
+            //     player(size, 1);
+            //     startRound(1);
+            //   },1000);
+            // })
         }
 
         player(size, p);
     }
-    
+
     
     startRound(round);
 });
 
-socket.on("reconnect-user", ({ user, room }) => {
-  if (UserStates.has(user)) {
-    UserStates.get(user).active = true;
-    socket.join(room);
-
-    // Emit the current state to the reconnected user
-    const gameState = GameStates.get(room);
-    if (gameState) {
-      socket.emit("restore-game-state", gameState);
-    }
-
-    let arr = RoomsScores.get(room);
-    io.to(room).emit("allusers", arr);
-  }
-});
 
   
 });
 
 server.listen(port, () => {
   console.log(`Server is running on port ${port}`);
-});
+})
