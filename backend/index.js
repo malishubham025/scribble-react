@@ -135,7 +135,9 @@ io.on("connection", (socket) => {
     socket.join(room);
     pushToMap(Rooms, room, user);
     pushToMap2(RoomsScores,room,{"user":user,score:0});
-
+    if(GameStates.get(room)){
+      console.log("already playing ");
+    }
     console.log(Rooms);
     console.log("scores->");
     console.log(RoomsScores);
