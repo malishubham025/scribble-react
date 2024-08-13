@@ -9,9 +9,12 @@ var Rooms= new Map();
 let UserStates=new Map();
 var RoomsScores= new Map();
 const GameStates = new Map();
+let RealGameState=new Map();
+const peerMap = new Map();
+const partialGameStates = new Map();
 // const jwt =require ("jsonwebtoken");
 // const cookieParser =require ("cookie-parser");
-
+const playerTimers = new Map(); 
 const secretKeyJWT = "asdasdsadasdasdasdsa";
 const port = 4000;
 
@@ -100,7 +103,7 @@ function pushScore(map,room,user,score){
     }
   }
 }
-
+var timer;
 
 io.on("connection", (socket) => {
 
@@ -127,7 +130,9 @@ io.on("connection", (socket) => {
     })
 
 
-
+  socket.on("peer-close",(room,id)=>{
+    io.to(room).emit("peer-close",id);
+  })
   socket.on("join-room", (info) => {
     console.log("=============================joined=======================================");
     const room=info.room;
@@ -135,20 +140,35 @@ io.on("connection", (socket) => {
     socket.join(room);
     pushToMap(Rooms, room, user);
     pushToMap2(RoomsScores,room,{"user":user,score:0});
-    if (GameStates.get(room)) {
-        io.to(room).emit("reload");
-        console.log("game play hai bhai");
-    }
+    // if (GameStates.get(room)) {
+    //     io.to(room).emit("reload");
+    //     console.log("game play hai bhai");
+    // }
     UserStates.set(user, { room, score: 0 });
     console.log(Rooms);
-    console.log("scores->");
-    console.log(RoomsScores);
-    // console.log("ROOMS ->");
+    // console.log("scores->");
+    // console.log(RoomsScores);
+    // // console.log("ROOMS ->");
     // console.log(Rooms.get(room));
     let arr=RoomsScores.get(room);
+    
     io.to(room).emit("allusers",arr);
     // console.log(User joined room ${room});
   });
+  
+  socket.on("joinedroom",(room,id,user)=>{
+    // console.log("ooiejijfijdioweijo",user);
+    // console.log("////////////////////")
+    // console.log(user,id);
+    // console.log("////////////////////")
+
+    peerMap.set(user,id);
+    socket.to(room).emit("userjoined",id,user);
+    if(partialGameStates.get(room)){
+      io.to(room).emit("partial-start",room);
+    }
+    // peer
+  })
   socket.on('drawing', (data) => {
     
     const room = data.room; // Assuming the room information is included in the data
@@ -175,7 +195,16 @@ io.on("connection", (socket) => {
   //   // console.log(arr);
     // io.to(room).emit("user-disconnect",user);
     if(arr){
-      io.to(room).emit("user-disconnect", user);
+      let x= peerMap.get(user);
+      // console.log(`//////////////////////////${x}///////////////////////`);
+      if(GameStates.get(room)){
+        GameStates.delete(room);
+        let x=playerTimers.get(room);
+        let obj1=RealGameState.get(room);
+        console.log(obj1);
+        clearInterval(x);
+      }
+      io.to(room).emit("user-disconnect", peerMap.get(user));
     for (let i = 0; i < arr.length; i++) {
       if (arr[i] === user) {
           arr.splice(i, 1);
@@ -202,6 +231,7 @@ io.on("connection", (socket) => {
         // console.log(Rooms);
     }
     // console.log(Rooms.get(room));
+    // io.to(room).emit("peer-close",);
     io.emit("userids",Object.fromEntries(myMap));
     // console.log(user);
   });
@@ -217,7 +247,7 @@ io.on("connection", (socket) => {
 
   socket.on("start-game",(obj)=>{
     console.log("game-started");
-  io.to(obj.room).emit("game-started",obj);
+    io.to(obj.room).emit("game-started",obj);
   })
 
 
@@ -231,33 +261,56 @@ io.on("connection", (socket) => {
         return;
     }
     // Ensure only one game starts per room
+    if(!partialGameStates.get(room)){
+      partialGameStates.set(room,true);
+    }
     if (GameStates.get(room)) {
         console.log(`Game already in progress for room ${room}`);
         return;
     }
+    if(!RealGameState.get(room) && arr){
+      // console.log("starting the game ",arr);
+      let obj={
+        rounds:0,
+        whowasplaying:arr[0],
+        timeremaining:0
+      }
+      RealGameState.set(room,obj);
+    }
     
     // Check if the number of players is enough to start the game
- 
+    let obj1=RealGameState.get(room);
     let words = ["hi", "hello", "isit", "nice", "one", "three", "home"];
     GameStates.set(room, true);
     let size = arr.length;
     let timegivenplayer = 40;
     let rounds = obj.rounds; // Number of rounds
-    let round = 1; // Start with round 1
-    let timebtwn = 5;
+    let round = obj1.rounds; // Start with round 1
+ 
     
     function startRound(round) {
         if (round > rounds) {
+            partialGameStates.set(room,false);
             console.log("Game ended.");
             GameStates.set(room, false);
+            obj1.rounds=0;
             return;
         }
         let score=size+10;
         console.log(`Round ${round} started`);
+        obj1.rounds=round;
         io.to(room).emit("round-number", round);
 
         let p = 1;
-
+        let p1=1;
+        for(let i=0;i<arr.length;i++){
+          
+          if(obj1.whowasplaying==arr[i]){
+              p1=i;
+              break;
+          }
+        }
+        
         function player(size, p) {
             if (p > size) {
                 startRound(round + 1); // Proceed to the next round
@@ -267,22 +320,25 @@ io.on("connection", (socket) => {
             let mySet = new Set();
             let x = timegivenplayer;
             let word = words[Math.floor(Math.random() * words.length)];
-            console.log(`${arr[p-1]} is playing with word: ${word}`);
-
+            console.log(`${arr[p1]} is playing with word: ${word} ${p1} `);
+            obj1.whowasplaying=arr[p1];
             io.to(room).emit("word", word);
-            io.to(room).emit("is-playing", arr[p-1]);
+            io.to(room).emit("is-playing", arr[(p1)%size]);
 
-            let timer = setInterval(() => {
+            timer = setInterval(() => {
                 if (x <= 0) {
+                   obj1.timeremaining=0;
                     io.to(room).emit("timer-player", 0);
                     clearInterval(timer);
+                    p1=(p1+1)%size;
                     player(size, p + 1); // Move to the next player
                 } else {
+                    obj1.timeremaining=x;
                     io.to(room).emit("timer-player", x);
                     x--;
                 }
             }, 1000);
-
+            playerTimers.set(room, timer);
             const checkTimeListener = (user) => {
                 console.log("correct guess by ", user);
                 pushScore(RoomsScores,room,user,score);
@@ -291,23 +347,16 @@ io.on("connection", (socket) => {
                 score--;
                 if (mySet.size === size - 1) { // All other players guessed correctly
                     console.log("All players guessed correctly, moving to next player");
+                    p1=(p1+1)%size;
                     clearInterval(timer);
                     socket.off("check-time", checkTimeListener); // Remove the listener
+                    
                     player(size, p + 1);
                 }
             };
 
             socket.on("check-time", checkTimeListener);
-            // socket.on("new_user",(room)=>{
-            //   clearInterval(timer);
-            //   player(size,size);
-            //   startRound(3);
-            //   setTimeout(()=>{
-            //     console.log("game started again");
-            //     player(size, 1);
-            //     startRound(1);
-            //   },1000);
-            // })
+
         }
 
         player(size, p);
