@@ -6,6 +6,7 @@ const cors =require ("cors");
 const cookieParser = require('cookie-parser');
 const cookie = require('cookie');
 const { channel } = require("diagnostics_channel");
+require("./gameLogic");
 var myMap = new Map();
 var Rooms= new Map();
 let UserStates=new Map();
@@ -45,6 +46,8 @@ app.get("/", (req, res) => {
 
 
 subScriber.subscribe("receive-message-room");
+subScriber.subscribe("final-play");
+
 // class Room{
 //   arr;
 //   admin;
@@ -89,11 +92,89 @@ subScriber.on("message", (channel, Receivedmessage) => {
     // console.log(actualMessage);
     io.to(room).emit("receive-message-room", { from, room, message, color });
   }
+  else if(channel=="final-play"){
+    
+    async function Game(){
+        try{
+            let obj=JSON.parse(Receivedmessage);
+            let room = obj.room;
+            console.log(room);
+            let arr = await Redis.get(room);
+            arr=JSON.parse(arr);
+            if (arr.length < 2) {
+                console.log("Not enough players to start the game");
+                return;
+            }
+            // Ensure only one game starts per room
+            let state = await partialGameStates.get(room);
+            state=JSON.parse(state);
+            if(!state){
+                let gameObject={
+                    rounds:0,
+                    whowasplaying:arr[0],
+                    timeremaining:0,
+                    state:true
+                }
+              partialGameStates.set(room,JSON.stringify(gameObject));
+            }
+            if (state && state.state) {
+                console.log(`Game already in progress for room ${room}`);
+                return;
+            }
+            
+            // console.log("starting the game ",arr);
+
+            let words = ["hi", "hello", "isit", "nice", "one", "three", "home"];
+            let round = 0, rounds = 3;
+            let secondsPerPlayer = 10;
+            let turnTime = secondsPerPlayer * 1000;
+            let roundTime = secondsPerPlayer * arr.length * 1000;
+            
+            async function startRound(round) {
+                if (round > rounds) {
+                    state.state = false;
+                    await partialGameStates.set(room, JSON.stringify(state));
+                    console.log("Game ended.");
+                    return;
+                }
+                
+                console.log("Round " + round + " is started!");
+            
+                async function player(playingPlayer) {
+                    if (playingPlayer >= arr.length) return;
+            
+                    console.log("Player " + playingPlayer + " is playing and round is " + round);
+                    
+                    // Wait for the turn to complete before moving to the next player
+                    await new Promise(resolve => setTimeout(resolve, turnTime));
+            
+                    await player(playingPlayer + 1);
+                }
+            
+                await player(0); // Ensure all players play sequentially
+            
+                console.log("Round " + round + " is ended!");
+                
+                setTimeout(() => {
+                    startRound(round + 1);
+                }, 1000); // Small delay before the next round
+            }
+            
+            // Start the game
+            await startRound(round);
+            
+      
+          
+          await startRound(round);
+        }
+        catch(err){
+            console.log("error while playing the game",err);
+        }
+    }
+    Game();
+  }
 });
-subScriber.on("final-play",(channel,data)=>{
-  let obj=json.parse(data);
-  io.to(obj.room).emit("game-started",obj);
-})
+
 io.on("connection", async (socket) => {
   const cookies = cookie.parse(socket.handshake.headers.cookie || '');
   const player=cookies.userid;
@@ -156,6 +237,7 @@ io.on("connection", async (socket) => {
   });
 
   socket.on("play-finnally", async (obj) => {
+    
     Publisher.publish("final-play",JSON.stringify(obj));
   });
 
