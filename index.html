@@ -5,15 +5,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
    
     <title>Document</title>
+    <style>
+      #video {
+        width: 640px; /* Adjust width as needed */
+        height: 480px; /* Adjust height as needed */
+        background-color: black; /* In case the video doesn't load, you can see the area */
+    }
+    
+    </style>
 </head>
 <body>
     <h1>hello</h1>
-    <canvas class="can" 
-      onmousedown="down(event)" 
-      onmousemove="draw(event)"
-      onmouseup="up(event)" 
-    
-    ></canvas>
+   
+    <video  id="video" autoplay playsinline></video>
     <script src="./index.js"></script>
 </body>
 </html>
