@@ -15,6 +15,7 @@ const GameStates = new Map();
 let RealGameState=new Map();
 const peerMap = new Map();
 
+// const map=require("./gameLogic");
 // const jwt =require ("jsonwebtoken");
 // const cookieParser =require ("cookie-parser");
 const playerTimers = new Map(); 
@@ -47,131 +48,74 @@ app.get("/", (req, res) => {
 
 subScriber.subscribe("receive-message-room");
 subScriber.subscribe("final-play");
+subScriber.subscribe("roundInfo");
+subScriber.subscribe("word");
+subScriber.subscribe("playername");
+subScriber.subscribe("correct-guess");
+subScriber.subscribe("timer-player");
+const set=new Set();
+const roomMap=new Map();
+const Game=require("./gameLogic");
 
-// class Room{
-//   arr;
-//   admin;
-//   currentWord;
-//   scores;
-
-//   addPlayer(player) {
-//     this.arr.push(player);
-//     this.scores.set(player,0);
-//   }
-//   setCurrentWord(word){
-//     this.currentWord=word;
-//   }
-//   removePlayer(name) {
-//     this.arr.filter((data)=>{
-//         return name!=data;
-//     })
-//     this.scores.delete(name);
-//   }
-//   isPlayerPresent(name) {
-//      for(let i=0;i<this.arr.length;i++){
-//       if(name==this.arr[i])return true;
-//      }
-//      return false;
-//   }
-//   sendMessage(message) {
-
-//   }
-//   constructor(name,admin){
-//       this.name=name;
-//       this.arr=[admin];
-//       this.admin=admin;
-//       this.scores=new Map();
-//       this.scores.set(admin,0);
-//   }
-// }
-
-subScriber.on("message", (channel, Receivedmessage) => {
+subScriber.on("message", async (channel, Receivedmessage) => {
   if (channel === "receive-message-room") {
     let actualMessage = JSON.parse(Receivedmessage);
     let { from, room, message, color } = actualMessage;
     // console.log(actualMessage);
     io.to(room).emit("receive-message-room", { from, room, message, color });
   }
-  else if(channel=="final-play"){
+  else if(channel=="timer-player"){
+    let obj=JSON.parse(Receivedmessage);
+    let room=obj.room;
+    let time=obj.time;
+    io.to(room).emit("timer-player",time);
+  }
+  else if(channel=="correct-guess"){
+    let obj=JSON.parse(Receivedmessage);
+    let room=obj.room;
+    let user=obj.user;
     
-    async function Game(){
-        try{
-            let obj=JSON.parse(Receivedmessage);
-            let room = obj.room;
-            console.log(room);
-            let arr = await Redis.get(room);
-            arr=JSON.parse(arr);
-            if (arr.length < 2) {
-                console.log("Not enough players to start the game");
-                return;
-            }
-            // Ensure only one game starts per room
-            let state = await partialGameStates.get(room);
-            state=JSON.parse(state);
-            if(!state){
-                let gameObject={
-                    rounds:0,
-                    whowasplaying:arr[0],
-                    timeremaining:0,
-                    state:true
-                }
-              partialGameStates.set(room,JSON.stringify(gameObject));
-            }
-            if (state && state.state) {
-                console.log(`Game already in progress for room ${room}`);
-                return;
-            }
-            
-            // console.log("starting the game ",arr);
 
-            let words = ["hi", "hello", "isit", "nice", "one", "three", "home"];
-            let round = 0, rounds = 3;
-            let secondsPerPlayer = 10;
-            let turnTime = secondsPerPlayer * 1000;
-            let roundTime = secondsPerPlayer * arr.length * 1000;
-            
-            async function startRound(round) {
-                if (round > rounds) {
-                    state.state = false;
-                    await partialGameStates.set(room, JSON.stringify(state));
-                    console.log("Game ended.");
-                    return;
-                }
-                
-                console.log("Round " + round + " is started!");
-            
-                async function player(playingPlayer) {
-                    if (playingPlayer >= arr.length) return;
-            
-                    console.log("Player " + playingPlayer + " is playing and round is " + round);
-                    
-                    // Wait for the turn to complete before moving to the next player
-                    await new Promise(resolve => setTimeout(resolve, turnTime));
-            
-                    await player(playingPlayer + 1);
-                }
-            
-                await player(0); // Ensure all players play sequentially
-            
-                console.log("Round " + round + " is ended!");
-                
-                setTimeout(() => {
-                    startRound(round + 1);
-                }, 1000); // Small delay before the next round
-            }
-            
-            // Start the game
-            await startRound(round);
-            
+    let arr = await Redis.get("count:" + room);
+    let userArr = { arr: [user] };
+    if (!arr) {
+      await Redis.set("count:" + room, JSON.stringify(userArr));
+    } else {
+      let b = true;
+      for (let i = 0; i < arr.length; i++) {
+        if (arr[i] == user) {
+          b = false;
+          break;
+        }
+      }
+      if (b) {
+        userArr.arr.push(user);
+      }
+      await Redis.set("count:" + room, JSON.stringify(userArr));
       
-          
-          await startRound(round);
-        }
-        catch(err){
-            console.log("error while playing the game",err);
-        }
     }
-    Game();
+    console.log("before"+userArr.arr.length);
+
+    // socket.to(room).emit("players-length")
+  }
+  else if(channel==="roundInfo"){
+    
+    let obj=JSON.parse(Receivedmessage);
+    io.to(obj.room).emit("round-info",obj.round);
+  }
+  else if(channel==="playername"){
+    
+    let obj=JSON.parse(Receivedmessage);
+    io.to(obj.room).emit("is-playing",obj.playername);
+  }
+  else if(channel==="word"){
+    
+    let obj=JSON.parse(Receivedmessage);
+    // console.log("word");
+    io.to(obj.room).emit("word",obj.word);
+  }
+  else if(channel=="final-play"){
+      await Game(Receivedmessage,io);
   }
 });
 
@@ -208,6 +152,15 @@ io.on("connection", async (socket) => {
     // console.log("hi");
     // io.to(room).emit("receive-message-room", {from,room,message,color})  
   });
+  socket.on("correct-guess", async ({ room, user }) => {
+    Publisher.publish("correct-guess",JSON.stringify({
+      room:room,
+      user:user
+    }))
+});
+
+
+
 
   socket.on("disconnect", async () => {
     
