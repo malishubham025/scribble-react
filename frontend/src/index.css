@@ -1,0 +1,80 @@
+.scribble-container {
+    max-width: 400px;
+    margin: 40px auto;
+    padding: 30px;
+    background-color: #ffffff;
+    border-radius: 10px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    text-align: center;
+}
+
+.scribble-container h1 {
+    color: #333;
+    margin-bottom: 25px;
+    font-size: 2.5em;
+    font-weight: bold;
+}
+
+.scribble-container input {
+    width: 100%;
+    padding: 12px;
+    margin-bottom: 15px;
+    border: 2px solid #e0e0e0;
+    border-radius: 6px;
+    font-size: 16px;
+    transition: border-color 0.3s ease;
+    box-sizing: border-box;
+}
+
+.scribble-container input:focus {
+    outline: none;
+    border-color: #4a90e2;
+}
+
+.scribble-container input::placeholder {
+    color: #999;
+}
+
+.scribble-container button {
+    background-color: #4a90e2;
+    color: white;
+    padding: 12px 24px;
+    border: none;
+    border-radius: 6px;
+    font-size: 16px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+    margin: 5px 0;
+    width: 100%;
+}
+
+.scribble-container button:hover {
+    background-color: #357abd;
+}
+
+.scribble-container button p {
+    margin: 0;
+    font-weight: 500;
+}
+
+/* Add some spacing between the enter room and create room buttons */
+.scribble-container button[type="submit"] {
+    margin-top: 20px;
+    background-color: #2ecc71;
+}
+
+.scribble-container button[type="submit"]:hover {
+    background-color: #27ae60;
+}
+
+/* Responsive design for smaller screens */
+@media (max-width: 480px) {
+    .scribble-container {
+        margin: 20px;
+        padding: 20px;
+    }
+
+    .scribble-container h1 {
+        font-size: 2em;
+    }
+}
