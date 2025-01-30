@@ -1,0 +1,147 @@
+.right_lobby {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    width: 30%;
+    
+    background-color: #ffffff;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    
+    
+}
+.info-player{
+    width:30%;
+    background-color: #dee2e6;
+}
+.bottom-lobby{
+    display: flex;
+}
+.main-lobby{
+    display: flex;
+
+}
+.left_lobby{
+    font-family: "Roboto", serif;
+    width: 70%;
+    
+}
+
+.game-info{
+    display: flex;
+    margin: 0;
+    padding: 0;
+    flex-direction: row;
+    justify-content: space-between;
+
+}
+.game-info button {
+    background-color: #4a90e2;
+    color: white;
+    /* padding: 12px 24px; */
+    border: none;
+    border-radius: 6px;
+    font-size: 16px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+    margin:10px;
+    width: 10%;
+}
+.messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.messages p {
+    font-weight: bold;
+    
+    font-family: 'Roboto';
+}
+
+
+/* Style for messages sent by the current user */
+.messages p[style*="color:"] {
+    align-self: flex-start;
+    color: rgb(0, 0, 0) ;
+}
+
+.right_lobby form {
+    display: flex;
+    gap: 10px;
+    padding: 20px;
+    background-color: #f8f9fa;
+    border-top: 1px solid #e9ecef;
+}
+
+.right_lobby input[type="text"] {
+    flex: 1;
+    padding: 12px 15px;
+    border: 1px solid #dee2e6;
+    border-radius: 20px;
+    font-size: 16px;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.right_lobby input[type="text"]:focus {
+    border-color: #007bff;
+}
+
+.right_lobby input[type="submit"] {
+    padding: 12px 24px;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: background-color 0.2s;
+}
+
+.right_lobby input[type="submit"]:hover {
+    background-color: #0056b3;
+}
+
+/* Add scrollbar styling */
+.messages::-webkit-scrollbar {
+    width: 6px;
+}
+
+.messages::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+.messages::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 3px;
+}
+
+.messages::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+
+/* Make it responsive */
+@media (max-width: 768px) {
+    .right_lobby {
+        height: calc(100vh - 20px);
+        margin: 10px;
+    }
+
+    .messages p {
+        max-width: 85%;
+    }
+
+    .right_lobby form {
+        padding: 15px;
+    }
+
+    .right_lobby input[type="text"],
+    .right_lobby input[type="submit"] {
+        padding: 10px 15px;
+        font-size: 14px;
+    }
+}

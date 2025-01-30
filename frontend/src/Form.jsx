@@ -14,6 +14,7 @@ function Form(){
         Cookies.set("admin",0);
         console.log(form.roomid);
         Cookies.set("roomid",form.roomid);
+        Cookies.set("username",form.name);
         navigate("/home");
        }
        else{
@@ -25,6 +26,7 @@ function Form(){
         let room=uuidv4();
         Cookies.set("roomid",room);
         Cookies.set("admin",1);
+        Cookies.set("username",form.name);
         navigate(`/home`);
     }
     function handelForm(event){
@@ -53,6 +55,7 @@ function Form(){
             const x=uuidv4();
             Cookies.set("userid",x);
         }
+
     },[]);
     // function
     return(
@@ -60,7 +63,7 @@ function Form(){
         <h1>Scrible</h1>
         <form action="">
         
-                <input name="name" onChange={handelForm} type="text" placeholder="Enter your name" />
+                <input name="name" onChange={handelForm} type="text" placeholder="Enter your name" required={true}/>
                 <p></p>
                 <br />
                 <input name="roomid" onChange={handelForm} type="text" placeholder="enter to the room"/>

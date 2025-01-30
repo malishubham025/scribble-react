@@ -8,10 +8,12 @@ import "./lobby.css"
 // import ScoresBoard from "./Socres";
 // import {ZegoUIKitPrebuilt} from "@zegocloud/zego-uikit-prebuilt"
 function Lobby(){
+    const RoomMap=new Map();
     var timebtwn=3;
     const [word,setword]=React.useState("hello");
     const ref=React.useRef();
     const contextref=React.useRef();
+    const [names,SetNames]=React.useState({});
     const [isdrawing,setisDrawing]=React.useState(false);
     const [penColor, setPenColor] = React.useState("#000000"); 
     const [penWidth, setPenWidth] = React.useState(1);
@@ -40,7 +42,24 @@ function Lobby(){
         let room=Cookies.get("roomid");
         let user=Cookies.get("userid");
     }
+   let test="7481224b-a0c7-46e3-b019-bdb1152f7bee";
+    // Store users to prevent duplicate logs
+
+    socket.off("score-check"); // Remove previous listeners to prevent duplicates
+    socket.on("score-check", ({ user, score }) => {
+        console.log(`Received score-check for ${user}, Score: ${score}`);
+    
+        SetNames((prevNames) => ({
+            ...prevNames,
+            [user]: {
+                ...prevNames[user],
+                score: (prevNames[user]?.score || 0) + score // Ensure correct score update
+            }
+        }));
+    });
+    
    
+
     function startGame() {
     
             const obj={
@@ -54,11 +73,17 @@ function Lobby(){
         }
 
             // }
-
+    
     
    
     
-    
+
+    socket.on("user-joined-with-name",(names2)=>{
+        
+        SetNames(names2);
+        // console.log(names);
+
+    })
     // // React.useEffect(() => {
     // //     socket.on("messagetoroom", (message) => {
     // //       console.log("Message received from room:", message);
@@ -97,10 +122,12 @@ function Lobby(){
         setAdmin(a);
         const room=Cookies.get("roomid");
         const user=Cookies.get("userid");
+        const name=Cookies.get("username");
 
         if (peer) {
             if(room){
-                socket.emit("join-room",{room,user});
+                // RoomMap.set(user,name);
+                socket.emit("join-room",{room,user,name});
                 peer.on('open',function(id){
                     peerId = id; 
                     socket.emit("joinedroom",room,id,user);
@@ -127,8 +154,9 @@ function Lobby(){
             });
             }
 
-            console.log("user joined", id);
+            // console.log("user joined", id);
           });
+
           
         // io.on("game-started",(obj)=>{
             
@@ -153,7 +181,7 @@ function Lobby(){
            
             // if(admin===1){
                 const id=Cookies.get("roomid");
-                console.log(obj);
+                // console.log(obj);
                 let roomid=obj.roomid;
                 let players=obj.players;
                 if(id===roomid && players>=2){
@@ -162,7 +190,7 @@ function Lobby(){
                         seconds:10,
                         room:roomid
                     }
-                    console.log("jo");
+                    // console.log("jo");
                     socket.emit("start-game",obj);
                     
                     // socket.emit(`start-game${roomid}`, obj);
@@ -179,7 +207,7 @@ function Lobby(){
             // sessionStorage.setItem("message",message);
             // setMessages(message.push({from:message}));
             setMessages(prevMessages => [...prevMessages, { from, message,color }]);
-            console.log(from,message);
+            // console.log(from,message);
 
         });
 
@@ -370,58 +398,76 @@ function Lobby(){
     
     return (
         <div className="main-lobby">
-            {admin!=0?<button onClick={startGame}>Start</button>:null}
-            <div className="audios">
-                <button id="mutebtn" onClick={handleMute}>Mute</button>
-            </div>
-            <div className="left_lobby">
-                <h3>word is {word}</h3>
-                <h3>Round number {round}</h3>
-                <h3>player {playername} is playing </h3>
-            <p>{Cookies.get("userid")} {timer}</p>
-            <div>
-                {scores && scores.length > 0 ? scores.map((data, index) => {
-                    return (
-                        <p key={index}>{data.user} {data.score}</p>
-                    );
-                }) : null}
-            </div>
 
+            <div className="left_lobby">
+                <div className="game-info">
+                    <p> {timer}</p>
+                    <p>word is {word}</p>
+                    <p>Round number {round}</p>
+                    {admin!=0?<button onClick={startGame}>Start</button>:null}
+                    <button id="mutebtn" onClick={handleMute}>Mute</button>
+                </div>
+
+                
+                <div className="bottom-lobby">
+                    <div className="info-player">
+                        <h3>player {playername?names[playername]?.name:null} is playing </h3>
+                        <h3>You are {names[Cookies.get("userid")]?.name}</h3>
+                        {Object.keys(names).map((data)=>{
+                            // {console.log(data);}
+                            return (<h2>{names[data]?.name} {names[data]?.score}</h2>);
+                        })}
+                        {/* <h3>You are {names[Cookies.get("userid")]?.name}</h3> */}
+
+                    <div>
+                    {scores && scores.length > 0 ? scores.map((data, index) => {
+                        return (
+                            <p key={index}>{data.user} {data.score}</p>
+                        );
+                    }) : null}
+                </div>
+                    </div>
+
+                    <div>
+                        <input type="color" onChange={handleColor}/>
+                        <canvas 
+                            onMouseDown={startdraw}
+                            onMouseUp={stopdraw}
+                            onMouseMove={draw}
+                            ref={ref}
+                        />
+                        <button onClick={click}>erase</button>
+                        <input 
+                            type="range" 
+                            min="1" 
+                            max="30" 
+                            value={penWidth} 
+                            onChange={handleWidthChange} 
+                            style={{ marginLeft: "10px" }}
+                        />
+                    </div>
+                </div>
             </div>
             <div className="right_lobby">
-                <form action="">
-                <input type="text" value={message} onChange={handelForm} placeholder="Meaasge" />
-                <input type="submit" onClick={sendMessage} placeholder="send" />
-                </form>
-            </div>
-             <div className="messages">
-                {messages?messages.map((data)=>{
-                    return (
-                        
-                    <p style={{color:Cookies.get("userid")==data.from?data.color:"black"}}>{data.from}  {data.message}</p>
-                    
 
-                    );
-                }):null}
-            </div> 
-            <div>
-            <input type="color" onChange={handleColor}/>
-            <canvas 
-                onMouseDown={startdraw}
-                onMouseUp={stopdraw}
-                onMouseMove={draw}
-                ref={ref}
-            />
-            <button onClick={click}>erase</button>
-            <input 
-                type="range" 
-                min="1" 
-                max="30" 
-                value={penWidth} 
-                onChange={handleWidthChange} 
-                style={{ marginLeft: "10px" }}
-            />
-        </div>
+                <div className="messages">
+                    {messages?messages.map((data)=>{
+                        return (
+                            
+                        <p style={{color:Cookies.get("userid")==data.from?data.color:"black"}}>{(names[data.from]?.name)}  {data.message}</p>
+                        
+
+                        );
+                    }):null}
+                </div> 
+                <div className="message-form">
+                    <form action="">
+                    <input type="text" value={message} onChange={handelForm} placeholder="Meaasge" />
+                    <input type="submit" onClick={sendMessage} placeholder="send" />
+                    </form>
+                </div>
+            </div>
+           
             {/* {console.log(admin)} */}
             
             <div ref={myMeeting}></div>
