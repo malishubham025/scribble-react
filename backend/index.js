@@ -46,6 +46,7 @@ subScriber.subscribe("playername");
 subScriber.subscribe("correct-guess");
 subScriber.subscribe("timer-player");
 subScriber.subscribe("join-room");
+subScriber.subscribe("peerRoom");
 const set=new Set();
 const roomMap=new Map();
 const Game=require("./gameLogic");
@@ -56,6 +57,15 @@ subScriber.on("message", async (channel, Receivedmessage) => {
     let { from, room, message, color } = actualMessage;
     // console.log(actualMessage);
     io.to(room).emit("receive-message-room", { from, room, message, color });
+  }
+  else if(channel==="peerRoom"){
+    let obj = JSON.parse(Receivedmessage);
+    let room=obj.room;
+    let id=obj.id;
+    let user=obj.user;
+    console.log("emitted",obj);
+    // socket.to(room).emit("userjoined",id,user);
+    io.to(room).emit("userjoined",id,user);
   }
   else if (channel === "join-room") {
     let obj = JSON.parse(Receivedmessage);
@@ -157,7 +167,16 @@ io.on("connection", async (socket) => {
     }));
     socket.join(room); // ✅ Join the room here
   });
-  
+  socket.on("joinedroom",(room,id,user)=>{ 
+    
+    Publisher.publish("peerRoom",
+      JSON.stringify({
+        user,
+        room,
+        id
+      })
+    )
+  })
   socket.on("toroom", async({ from,room, message ,color}) => {
     
     await Publisher.publish("receive-message-room",JSON.stringify({
@@ -222,6 +241,6 @@ subScriber.on("connect", () => {
   console.log("Redis Subscriber connected!");
 });
 
-server.listen(port, () => {
+server.listen(process.env.port, () => {
   console.log(`Server is running on port ${port}`);
 })

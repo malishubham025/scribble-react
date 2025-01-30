@@ -1,16 +1,4 @@
 const {Redis,partialGameStates,Publisher,subScriber}=require("./connections");
-async function controlGame(turnTime,shouldStop) {
-    if(shouldStop){
-        return new Promise((resolve)=>{
-            resolve();
-        })
-    }
-    else{
-        return new Promise((resolve,reject)=>{
-            setTimeout(resolve, turnTime)
-        });
-    }
-}
 
 async function Game(Receivedmessage,io){
     
