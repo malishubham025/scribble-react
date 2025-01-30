@@ -1,23 +1,15 @@
 const express =require ("express");
 const { Server }=require  ("socket.io");
 const { createServer } =require ("http");
-const {Redis,partialGameStates,Publisher,subScriber}=require("./connections");
+const {Redis,partialGameStates,Publisher,subScriber,Names}=require("./connections");
 const cors =require ("cors");
 const cookieParser = require('cookie-parser');
 const cookie = require('cookie');
-const { channel } = require("diagnostics_channel");
+require('dotenv').config();
 require("./gameLogic");
-var myMap = new Map();
-var Rooms= new Map();
-let UserStates=new Map();
-var RoomsScores= new Map();
-const GameStates = new Map();
-let RealGameState=new Map();
-const peerMap = new Map();
 
-// const map=require("./gameLogic");
-// const jwt =require ("jsonwebtoken");
-// const cookieParser =require ("cookie-parser");
+
+
 const playerTimers = new Map(); 
 const secretKeyJWT = "asdasdsadasdasdasdsa";
 const port = 4000;
@@ -53,6 +45,7 @@ subScriber.subscribe("word");
 subScriber.subscribe("playername");
 subScriber.subscribe("correct-guess");
 subScriber.subscribe("timer-player");
+subScriber.subscribe("join-room");
 const set=new Set();
 const roomMap=new Map();
 const Game=require("./gameLogic");
@@ -64,40 +57,71 @@ subScriber.on("message", async (channel, Receivedmessage) => {
     // console.log(actualMessage);
     io.to(room).emit("receive-message-room", { from, room, message, color });
   }
+  else if (channel === "join-room") {
+    let obj = JSON.parse(Receivedmessage);
+    let roomname = obj.room;
+    let player = obj.user;
+    let name = obj.name;
+    try {
+        let res = await Redis.get(roomname);
+        let arr = res ? JSON.parse(res) : [];
+        arr.push(player);
+        await Redis.set(roomname, JSON.stringify(arr));
+
+        let names = await Redis.get("names:" + roomname); // <-- Fix: Await Redis.get()
+        if (!names) {
+            names = { [player]: {
+              name:name,
+              score:0} };  // Fix: Use player as key
+            await Redis.set("names:" + roomname, JSON.stringify(names));
+            
+        } else {
+            names = JSON.parse(names);
+            names[player] = {
+              name:name,
+              score:0};  // Fix: Store multiple users properly
+            await Redis.set("names:" + roomname, JSON.stringify(names));
+        }
+        
+        io.to(roomname).emit("user-joined-with-name", names);
+        console.log(arr);
+    } catch (err) {
+        console.error("Error while interacting with Redis:", err);
+    }
+}
+
   else if(channel=="timer-player"){
     let obj=JSON.parse(Receivedmessage);
     let room=obj.room;
     let time=obj.time;
     io.to(room).emit("timer-player",time);
   }
-  else if(channel=="correct-guess"){
-    let obj=JSON.parse(Receivedmessage);
-    let room=obj.room;
-    let user=obj.user;
-    
+  else if (channel == "correct-guess") {
+    let obj = JSON.parse(Receivedmessage);
+    let room = obj.room;
+    let user = obj.user;
 
     let arr = await Redis.get("count:" + room);
-    let userArr = { arr: [user] };
-    if (!arr) {
-      await Redis.set("count:" + room, JSON.stringify(userArr));
-    } else {
-      let b = true;
-      for (let i = 0; i < arr.length; i++) {
-        if (arr[i] == user) {
-          b = false;
-          break;
-        }
-      }
-      if (b) {
-        userArr.arr.push(user);
-      }
-      await Redis.set("count:" + room, JSON.stringify(userArr));
-      
-    }
-    console.log("before"+userArr.arr.length);
+    let score = await Redis.get("score:" + room);
 
-    // socket.to(room).emit("players-length")
-  }
+    let userArr = arr ? JSON.parse(arr) : { arr: [] };
+
+    if (!userArr.arr.includes(user)) {
+        userArr.arr.push(user);
+        await Redis.set("count:" + room, JSON.stringify(userArr));
+
+        let newScore = score ? Number(score) - 10 : 100;
+        await Redis.set("score:" + room, newScore);
+
+        console.log(`Emitting score-check for ${user}, score: ${newScore}`); // Debugging
+
+        io.to(room).emit("score-check", { user: user, score: newScore });
+    } else {
+        console.log(`User ${user} already guessed, skipping event emission.`);
+    }
+}
+
+
   else if(channel==="roundInfo"){
     
     let obj=JSON.parse(Receivedmessage);
@@ -125,21 +149,15 @@ io.on("connection", async (socket) => {
   const roomname=cookies.roomid;
   // console.log(player,roomname);
 
-  try {
-    let res = await Redis.get(roomname);
-    if (res) {
-      let arr = JSON.parse(res);
-      arr.push(player);
-      await Redis.set(roomname, JSON.stringify(arr));
-      console.log(arr);
-    } else {
-      await Redis.set(roomname, JSON.stringify([player]));
-      
-    }
-    socket.join(roomname);
-  } catch (err) {
-    console.error("Error while interacting with Redis:", err);
-  }
+  socket.on("join-room", ({ room, user,name }) => {
+    Publisher.publish("join-room", JSON.stringify({
+      room: room,
+      user: user,
+      name:name
+    }));
+    socket.join(room); // ✅ Join the room here
+  });
+  
   socket.on("toroom", async({ from,room, message ,color}) => {
     
     await Publisher.publish("receive-message-room",JSON.stringify({

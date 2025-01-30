@@ -70,6 +70,7 @@ async function Game(Receivedmessage,io){
             let timeout2;
             async function player(playerNumber){
                 if(playerNumber>=arr.length){
+                    
                     startRound(round+1);
                     return;
                 }
@@ -95,6 +96,7 @@ async function Game(Receivedmessage,io){
                     if(userArr && userArr.arr.length==arr.length-1){
                         await Redis.del("count:"+room);
                         console.log("next-player");
+                        await Redis.del("score:"+room);
                         clearInterval(timer);
                         player(playerNumber+1);
                     }
@@ -103,6 +105,7 @@ async function Game(Receivedmessage,io){
                         io.to(room).emit("timer-player", 0);
                         clearInterval(timer);
                         // p1=(p1+1)%size;
+                        await Redis.del("score:"+room);
                         player(playerNumber + 1); // Move to the next player
                     } else {
                         // obj1.timeremaining=x;
